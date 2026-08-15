@@ -59,10 +59,10 @@ Suitest combines black-box DOM testing, video and screenshot evidence, MCP workf
 
 Not every repository starts as a product. Some are public experiments, infrastructure, or questions we are working through in the open:
 
-- [ctx](https://github.com/suiflex/ctx) — Claude Transport, a small adjacent infrastructure repository.
 - [companion](https://github.com/suiflex/companion) — a public supporting repository in the Suiflex ecosystem.
 - [websift](https://github.com/suiflex/websift) — an early public experiment.
-- [homebrew-tap](https://github.com/suiflex/homebrew-tap) — distribution infrastructure for Suiflex binaries.
+- [homebrew-tap](https://github.com/suiflex/homebrew-tap) — Homebrew distribution infrastructure for Suiflex binaries.
+- [scoop-bucket](https://github.com/suiflex/scoop-bucket) — Windows distribution infrastructure for Suiflex binaries.
 
 [Browse all repositories →](https://github.com/suiflex)
 
