@@ -33,13 +33,13 @@ We focus on practical questions that recur when AI systems become part of real e
 
 ## Selected work
 
-### [ForgeGuard](https://github.com/suiflex/ForgeGuard)
+### <img src="https://raw.githubusercontent.com/suiflex/ForgeGuard/main/assets/brand/logo-mark.svg" alt="" width="20" align="top"> [ForgeGuard](https://github.com/suiflex/ForgeGuard)
 
 **AI engineering discipline** — a token-efficient quality layer for AI coding agents.
 
 One Rust binary turns explicit engineering intent into checks, tasks, and evidence across coding agents—without adding another LLM call to the loop.
 
-### [rdb](https://github.com/suiflex/rdb)
+### <img src="https://raw.githubusercontent.com/suiflex/rdb/develop/assets/brand/logo-mark.svg" alt="" width="20" align="top"> [rdb](https://github.com/suiflex/rdb)
 
 **Developer tooling** — a free, open-source desktop database client built as one native binary.
 
@@ -47,7 +47,7 @@ A cross-platform Rust and Slint application for PostgreSQL, MySQL, Redis, MongoD
 
 [Product site →](https://rdb.suiflex.dev)
 
-### [suitest](https://github.com/suiflex/suitest)
+### <img src="https://raw.githubusercontent.com/suiflex/suitest/main/assets/brand/logo-mark.svg" alt="" width="20" align="top"> [suitest](https://github.com/suiflex/suitest)
 
 **Agent-native testing** — a self-hostable, MCP-native QA platform for deterministic and agent-driven testing.
 
@@ -59,10 +59,10 @@ Suitest combines black-box DOM testing, video and screenshot evidence, MCP workf
 
 Not every repository starts as a product. Some are public experiments, infrastructure, or questions we are working through in the open:
 
-- [ctx](https://github.com/suiflex/ctx) — Claude Transport, a small adjacent infrastructure repository.
 - [companion](https://github.com/suiflex/companion) — a public supporting repository in the Suiflex ecosystem.
 - [websift](https://github.com/suiflex/websift) — an early public experiment.
-- [homebrew-tap](https://github.com/suiflex/homebrew-tap) — distribution infrastructure for Suiflex binaries.
+- [homebrew-tap](https://github.com/suiflex/homebrew-tap) — Homebrew distribution infrastructure for Suiflex binaries.
+- [scoop-bucket](https://github.com/suiflex/scoop-bucket) — Windows distribution infrastructure for Suiflex binaries.
 
 [Browse all repositories →](https://github.com/suiflex)
 
