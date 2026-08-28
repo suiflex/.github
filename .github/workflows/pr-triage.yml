@@ -1,0 +1,185 @@
+# Labels pull requests across the suiflex organization on behalf of suiflex-bot:
+#  - 'bot' for pull requests opened by bot accounts
+#  - 'maintainer' for members of the suiflex/maintainers team
+#  - 'first contribution' for first-time external contributors
+#  - 'commit: <type>' for each conventional-commit type present in the branch
+#  - 'needs: conventional commit' when a commit message cannot be parsed
+#
+# Callers are thin stubs in each repository. Editing this file changes the
+# behavior everywhere at once; see scripts/sync-labels.sh for the label
+# definitions themselves.
+name: PR Triage
+
+on:
+  workflow_call:
+    secrets:
+      app_id:
+        required: true
+      private_key:
+        required: true
+
+# The GITHUB_TOKEN is unused: every API call goes through the suiflex-bot app
+# token minted below, so that the labels appear under the bot's name and so
+# that team membership is readable at all.
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.app_id }}
+          private-key: ${{ secrets.private_key }}
+          owner: suiflex
+          # Narrowed here rather than relying on the app's org-wide grant, so
+          # that a mistake in this workflow cannot reach anything else.
+          permission-members: read
+          permission-pull-requests: write
+
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const ORG = 'suiflex';
+            const MAINTAINERS_TEAM = 'maintainers';
+
+            const BOT = 'bot';
+            const MAINTAINER = 'maintainer';
+            const FIRST_CONTRIBUTION = 'first contribution';
+            const NEEDS_CONVENTIONAL = 'needs: conventional commit';
+
+            const COMMIT_TYPES = [
+              'feat', 'fix', 'docs', 'chore', 'refactor',
+              'test', 'ci', 'build', 'perf',
+            ];
+
+            // Every label this workflow owns. Reconciliation below only ever
+            // adds or removes names from this set, so labels applied by hand —
+            // 'enhancement', 'driver', 'good first issue' — are never touched.
+            const MANAGED = new Set([
+              BOT, MAINTAINER, FIRST_CONTRIBUTION, NEEDS_CONVENTIONAL,
+              ...COMMIT_TYPES.map((type) => `commit: ${type}`),
+            ]);
+
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+
+            const isMaintainer = async (username) => {
+              try {
+                const response = await github.rest.teams.getMembershipForUserInOrg({
+                  org: ORG,
+                  team_slug: MAINTAINERS_TEAM,
+                  username,
+                });
+                return response.data.state === 'active';
+              } catch (error) {
+                // 404 is the documented answer for "not a member". Anything
+                // else is a real failure and must not be read as a negative.
+                if (error.status !== 404) {
+                  throw error;
+                }
+                return false;
+              }
+            };
+
+            // Inverted on purpose. A first-time contributor is reported as
+            // 'NONE' rather than 'FIRST_TIME_CONTRIBUTOR', so testing for the
+            // positive value silently never matches:
+            // https://github.com/orgs/community/discussions/78038
+            // Verified against zed-industries/zed#63236, whose first-time
+            // author came through as 'NONE'.
+            // This breaks if GitHub ever adds a new association value.
+            const KNOWN_ASSOCIATIONS = [
+              'CONTRIBUTOR', 'COLLABORATOR', 'MEMBER', 'OWNER', 'MANNEQUIN',
+            ];
+            const isFirstContribution = (association) =>
+              !KNOWN_ASSOCIATIONS.includes(association);
+
+            const CONVENTIONAL = new RegExp(
+              `^(${COMMIT_TYPES.join('|')}|style|revert)(\\(.+\\))?!?: `
+            );
+
+            const commitLabels = async () => {
+              const commits = await github.paginate(github.rest.pulls.listCommits, {
+                owner,
+                repo,
+                pull_number: pr.number,
+                per_page: 100,
+              });
+
+              const labels = new Set();
+              for (const { commit } of commits) {
+                const subject = commit.message.split('\n', 1)[0];
+                const match = subject.match(CONVENTIONAL);
+
+                // 'style' and 'revert' are valid conventional commits but have
+                // no label of their own; they simply must not be flagged.
+                if (!match) {
+                  labels.add(NEEDS_CONVENTIONAL);
+                } else if (COMMIT_TYPES.includes(match[1])) {
+                  labels.add(`commit: ${match[1]}`);
+                }
+              }
+              return labels;
+            };
+
+            const wanted = async () => {
+              // Bot pull requests get one label and nothing else. Listing the
+              // commit types of a release-please branch is noise nobody reads.
+              if (pr.user.type === 'Bot') {
+                return new Set([BOT]);
+              }
+
+              const labels = await commitLabels();
+
+              if (await isMaintainer(pr.user.login)) {
+                labels.add(MAINTAINER);
+              } else if (isFirstContribution(pr.author_association)) {
+                labels.add(FIRST_CONTRIBUTION);
+              }
+
+              return labels;
+            };
+
+            const target = await wanted();
+            const current = new Set(pr.labels.map((label) => label.name));
+
+            // Reconcile rather than append: this workflow also runs on
+            // 'synchronize', so a label that stops applying — most importantly
+            // 'needs: conventional commit' after the author fixes a message —
+            // has to come back off.
+            const toAdd = [...target].filter((name) => !current.has(name));
+            const toRemove = [...current].filter(
+              (name) => MANAGED.has(name) && !target.has(name)
+            );
+
+            core.info(`labels: +[${toAdd}] -[${toRemove}]`);
+
+            if (toAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels: toAdd,
+              });
+            }
+
+            for (const name of toRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  name,
+                });
+              } catch (error) {
+                // Someone removed it by hand between the read and the write.
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
